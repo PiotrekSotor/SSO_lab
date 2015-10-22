@@ -22,6 +22,8 @@ int main(int argc, char** argv)
 	
 	pid = fork();
 
+	
+
 	//potomny odczytuje
 	//macierzysty pisze
 	if (pid == 0)
