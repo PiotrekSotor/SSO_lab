@@ -3,23 +3,33 @@
 #include<sys/stat.h>
 #include<stdio.h>
 #include<fcntl.h>
+#include<unistd.h>
+
+#define BUF_SIZE 1024
 
 int main(int argc, char* argv[])
 {
-	int i,j,k;
+	int i;
 	int fd;
 	int result;
-	char string[20];
-	if (argc < 2)
+	int mode;
+	
+	char buffer[BUF_SIZE];
+	if (argc < 3)
 		return -1;
+	/*	
+	mode == 0 - otwiera do czytania, ale nie czyta
+	mode == 1 - otwiera do czytania, czyta co 1 s 
+	mode == 2 - otwiera do czytania, czyta nieprzerwanie
+	*/
+	mode = atoi(argv[2]);
+	
+	
+	
 	printf("Reader: fifo path: %s\n",argv[1]);
 
-	// result = mkfifo(argv[1],0666 | O_CREAT);
-	// if (result < 0)
-	// {
-	// 	perror("mkfifo fail");
-	// 	exit(-2);
-	// }
+	
+	
 	fd = open(argv[1], O_RDONLY);
 	printf("fd: %d\n",fd);
 	if (fd < 0)
@@ -27,11 +37,27 @@ int main(int argc, char* argv[])
 		perror("open fail");
 		exit (-3);
 	}
-	for (i=0;i<10;++i)
+	if (mode != 0)
 	{
-		result = read(fd, string, 20);
-		printf("Reader: %s",string);
+		
+		for (i=0;1;++i)
+		{
+			
+			result = read(fd, buffer, BUF_SIZE);
+			if (result == 0)
+			{
+				printf("cannot read\n");
+				exit(1);
+			}
+				
+			else
+				printf("Reader: %d\n",i);			
+			if (mode == 1)
+				sleep(1);
+		}
 	}
+	else
+		while(1);
 	close(fd);
-	exit(0);
+	return 0;
 }
