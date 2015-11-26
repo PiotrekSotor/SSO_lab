@@ -13,6 +13,7 @@
 	argv[2] = server port
 	argv[3] = client name
 	argv[4] = tryb: 0 - ciagle wysylanie
+	argv[5] = liczba pakietow
 
 */
 int main(int argc, char* argv[])
@@ -28,7 +29,7 @@ int main(int argc, char* argv[])
 	
 	memset((char*)buffer, '\0',sizeof(buffer));
 	
-	if (argc < 5)
+	if (argc < 6)
 	{
 		printf("za malo argumentow\n");
 		return 1;
@@ -69,15 +70,15 @@ int main(int argc, char* argv[])
 		perror("write function");
 	
 
-	for (counter = 0; counter < 40; ++counter)
+	for (counter = 0; counter < atoi(argv[5]); ++counter)
 	{
-		printf("say something\n");
 		sprintf(buffer,"package: %d\n",counter);
 		status = write(sock_fd, buffer,strlen(buffer));
 		if (status < 0)
 		{
 			perror("write function");
 		}
+		printf("sent \"%s\" to server\n",buffer);
 	}
 	shutdown(sock_fd,2);
 

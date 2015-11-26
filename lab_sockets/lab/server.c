@@ -56,7 +56,7 @@ int main(int argc, char* argv[])
 
 	printf("\tConnection established\n");
 	c_len = sizeof(c_addr);
-	if (atoi[argv[3] == 2)
+	if (atoi(argv[3]) == 2)
 		sleep(30);
 	else 
 		while (1)
@@ -67,17 +67,18 @@ int main(int argc, char* argv[])
 			if (pid == 0)
 			{
 				printf("after accept\n");
-				memset((char*)&buffer, '\0',sizeof(buffer));
-				read(new_sock_fd, buffer,255);
-				printf("asd: %s\n",buffer);
-
-				if (atoi[argv[3] == 1)
+				if (atoi(argv[3]) == 1)
+				{
+					memset((char*)&buffer, '\0',sizeof(buffer));
+					read(new_sock_fd, buffer,255);
+					printf("asd: %s\n",buffer);
 					while (read(new_sock_fd, buffer,255) > 0)
 					{
 						printf("received: %s",buffer);
 						memset((char*)&buffer, '\0',sizeof(buffer));
 					}
-				else if (atoi[argv[3] == 0)
+				}
+				else if (atoi(argv[3]) == 0)
 					sleep(30);
 				shutdown(new_sock_fd,2);
 				printf("connection closed");
