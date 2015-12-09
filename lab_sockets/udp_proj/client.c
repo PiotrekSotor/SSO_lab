@@ -1,12 +1,43 @@
 #include <sys/socket.h>
+#include <pthread.h>
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <netdb.h>
+#include <unistd.h>
 #include <string.h>
+#include <sys/time.h>
 
+
+#define DEBUG 0
+#define DEBUG_PING 0
 #define DEFAULT_PORT 8080
 #define BUFSIZE 1000
+
+
+struct sockaddr_in serv_addr;
+socklen_t addr_len = sizeof (serv_addr);
+int sock_fd;
+
+char server_connected_flag = 0;
+char received_pong = 0;
+char username[50];
+
+
+//protokół transmisji:
+// co 500 ms wysyła PONG do servera, (osobny wątek?)
+// server odpowiada w czasie do 500 ms, jesli nie to koniec
+
+
+void *threadPong();
+
+void *threadReceiver();
+
+float timedifference_millis(struct timeval t0, struct timeval t1);
+
+
+
+
 //
 //	argv[1] - server addres
 //	argv[2] - server port
@@ -15,13 +46,15 @@
 int main (int argc, char* argv[])
 {
 	int serv_port = DEFAULT_PORT;
-	struct sockaddr_in serv_addr;
 	struct hostent *serv_information;
-	socklen_t addr_len = sizeof (serv_addr);
-	int sock_fd;
+	
 	int recv_len;
 	char buffer[BUFSIZE];
+	char sendbuffer[BUFSIZE];
 	int i;
+	pthread_t pong_t;
+	pthread_t receiver_t;
+	
 
 	if (argc < 4)
 	{
@@ -34,7 +67,7 @@ int main (int argc, char* argv[])
 		perror("socket");
 		return -1;
 	}
-
+	strcpy(username,argv[3]);
 
 	memset((char*)&serv_addr,0,sizeof(serv_addr));
 	serv_addr.sin_family = AF_INET;
@@ -48,20 +81,129 @@ int main (int argc, char* argv[])
 	}
 	memcpy((void*)&serv_addr.sin_addr, serv_information->h_addr_list[0], serv_information->h_length);
 
-	printf("Client started");
+	printf("Client started\n");
+	server_connected_flag = 1;
 
-	for (i = 0; i<10; ++i)
+	pthread_create(&pong_t,NULL,threadPong,NULL);
+	pthread_create(&receiver_t,NULL,threadReceiver,NULL);
+
+
+	while (1)
 	{
-		sprintf(buffer, "%s:message: %i\n",argv[3],i);
-		sendto(sock_fd, buffer, strlen(buffer), 0, (struct sockaddr*)&serv_addr, addr_len);
-		// recv_len = recvfrom(sock_fd, buffer, BUFSIZE, 0, (struct sockaddr*)&cl_addr, &addr_len);
-		printf("sent data: %s\n",buffer);
-
-
+		if (server_connected_flag == 0 )
+		{
+			if (DEBUG == 1)
+				printf("DEBUG main: czekanie na polaczenie\n");
+			sleep(1);
+			continue;	
+		}
+		memset ((char*)buffer,0,BUFSIZE);
+		read(0,buffer,BUFSIZE);
+		sprintf(sendbuffer,"%s:%s",username,buffer);
+		sendto(sock_fd, sendbuffer, strlen(sendbuffer), 0, (struct sockaddr*)&serv_addr, addr_len);
+		if (DEBUG == 1)
+			printf("DEBUG main: wysłano pakiet\n\t%s\n",sendbuffer);
 	}
+
+
+
+
+
+
+	// for (i = 0; i<10; ++i)
+	// {
+	// 	sprintf(buffer, "%s:message: %i\n",argv[3],i);
+	// 	sendto(sock_fd, buffer, strlen(buffer), 0, (struct sockaddr*)&serv_addr, addr_len);
+	// 	// recv_len = recvfrom(sock_fd, buffer, BUFSIZE, 0, (struct sockaddr*)&cl_addr, &addr_len);
+	// 	printf("sent data: %s\n",buffer);
+
+
+	// }
 	// close (sock_fd);
 	return 0;
 
 
 
+}
+// if (alarm_displayed == 0)
+// 	printf("\tServer doesnt respond\n");
+// continue;
+void *threadPong()
+{
+	struct timeval start, stop;
+	char alarm_displayed = 0;
+	char buffer[10];
+	sprintf(buffer,"%s:PING",username);
+
+	if (DEBUG_PING == 1)
+		printf("DEBUG threadPong: start threadPong\n");
+
+	while (1)
+	{
+		sendto(sock_fd, buffer, strlen(buffer), 0, (struct sockaddr*)&serv_addr, addr_len);
+		if (DEBUG_PING == 1)
+			printf("DEBUG threadPong: wysłano PING\n");
+		gettimeofday(&start, NULL);
+		while (received_pong == 0)
+		{
+			gettimeofday(&stop, NULL);
+			if (timedifference_millis(start,stop) > 1000.0f)
+			{
+				if (DEBUG_PING == 1)
+					printf("DEBUG threadPong: przekroczenie timooutu na PONG\n");
+				received_pong = 0;
+				server_connected_flag = 0;
+				// Komunikat tylko przy pierwszym niepowodzeniu
+				if (alarm_displayed == 0)
+				{
+					printf("\tServer doesnt respond\n");
+					alarm_displayed = 1;
+				}
+				break;
+			}
+			// ewentualny usleep(10000)
+		}
+		// otrzymano odpowiedz na ping w spodziewanym czasie
+		if (received_pong == 1)
+		{
+			server_connected_flag = 1;
+			alarm_displayed = 0;
+			if (DEBUG_PING == 1)
+				printf("DEBUG threadPong: poprawny odbior PONG\n");
+		}
+		sleep(5);
+		received_pong = 0;
+	}
+}
+
+void *threadReceiver()
+{
+	char buffer[BUFSIZE];
+	if (DEBUG == 1)
+		printf("DEBUG threadReceiver: start threadReceiver\n");
+	while (1)
+	{
+		memset ((char*)buffer,0,BUFSIZE);
+		recvfrom(sock_fd, buffer, BUFSIZE, 0, (struct sockaddr*)&serv_addr, &addr_len);
+		if (DEBUG == 1)
+			printf("DEBUG threadReceiver: odebrano pakiet\n\t%s\n",buffer);
+		if (strcmp(buffer,"PONG")==0)
+		{
+			if (DEBUG_PING == 1)
+				printf("DEBUG threadReceiver: odebrano PONG\n");	
+			received_pong = 1;
+		}
+		else
+		{
+			if (DEBUG == 1)
+				printf("DEBUG threadReceiver: odebrano pakiet zwykly\n");
+			printf("\t%s",buffer);
+		}
+	}
+
+}
+
+float timedifference_millis (struct timeval t0, struct timeval t1)
+{
+	return (t1.tv_sec - t0.tv_sec) * 1000.0f + (t1.tv_usec - t0.tv_usec)/1000.f;
 }
