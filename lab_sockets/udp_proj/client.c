@@ -5,8 +5,8 @@
 #include <stdlib.h>
 #include <netdb.h>
 #include <unistd.h>
-#include <string.h>
 #include <sys/time.h>
+#include <string.h>
 
 
 #define DEBUG 0
@@ -48,10 +48,10 @@ int main (int argc, char* argv[])
 	int serv_port = DEFAULT_PORT;
 	struct hostent *serv_information;
 	
-	int recv_len;
+	// int recv_len;
 	char buffer[BUFSIZE];
 	char sendbuffer[BUFSIZE];
-	int i;
+	// int i;
 	pthread_t pong_t;
 	pthread_t receiver_t;
 	
@@ -105,33 +105,14 @@ int main (int argc, char* argv[])
 			printf("DEBUG main: wysłano pakiet\n\t%s\n",sendbuffer);
 	}
 
-
-
-
-
-
-	// for (i = 0; i<10; ++i)
-	// {
-	// 	sprintf(buffer, "%s:message: %i\n",argv[3],i);
-	// 	sendto(sock_fd, buffer, strlen(buffer), 0, (struct sockaddr*)&serv_addr, addr_len);
-	// 	// recv_len = recvfrom(sock_fd, buffer, BUFSIZE, 0, (struct sockaddr*)&cl_addr, &addr_len);
-	// 	printf("sent data: %s\n",buffer);
-
-
-	// }
-	// close (sock_fd);
 	return 0;
-
-
-
 }
-// if (alarm_displayed == 0)
-// 	printf("\tServer doesnt respond\n");
-// continue;
+
 void *threadPong()
 {
 	struct timeval start, stop;
 	char alarm_displayed = 0;
+	char succes_displayed = 1;
 	char buffer[10];
 	sprintf(buffer,"%s:PING",username);
 
@@ -158,16 +139,20 @@ void *threadPong()
 				{
 					printf("\tServer doesnt respond\n");
 					alarm_displayed = 1;
+					succes_displayed = 0;
 				}
 				break;
 			}
-			// ewentualny usleep(10000)
+			usleep(100000);
 		}
 		// otrzymano odpowiedz na ping w spodziewanym czasie
 		if (received_pong == 1)
 		{
 			server_connected_flag = 1;
 			alarm_displayed = 0;
+			if (succes_displayed == 0)
+				printf("\tServer respond ok\n");
+			succes_displayed = 1;
 			if (DEBUG_PING == 1)
 				printf("DEBUG threadPong: poprawny odbior PONG\n");
 		}
